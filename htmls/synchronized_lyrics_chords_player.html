@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynchroLyric & Chord Studio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.6);
+    }
+    /* Word highlighting animations */
+    .word-active {
+      background: linear-gradient(120deg, #f59e0b, #ef4444);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      text-shadow: 0 0 16px rgba(245, 158, 11, 0.45);
+      transform: scale(1.08);
+      display: inline-block;
+    }
+    .word-spoken {
+      color: #94a3b8;
+    }
+    .word-upcoming {
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-black">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 py-3 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center font-black text-black shadow-lg shadow-amber-500/20">
+          ♫
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+            SRT Word Highlighter & Chord Tracker
+            <span class="text-xs bg-amber-500/20 text-amber-300 font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">Synced</span>
+          </h1>
+          <p class="text-xs text-slate-400">Doechii – “Denial Is A River” (Tiny Desk / Tutorial chords)</p>
+        </div>
+      </div>
+
+      <!-- Quick Control Actions -->
+      <div class="flex items-center space-x-2">
+        <button id="toggleAudioAlignDrawerBtn" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+          Audio Alignment Engine
+        </button>
+        <button id="toggleSrtDrawerBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          Edit SRT / Video
+        </button>
+        <button id="autoScrollToggle" class="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          Auto-Scroll: <span id="autoScrollStatus" class="font-bold">ON</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- SRT Edit Drawer (Hidden by default) -->
+  <div id="srtDrawer" class="hidden border-b border-slate-800 bg-slate-900/95 p-4 sm:p-6 transition-all duration-300">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="md:col-span-1 space-y-3">
+        <h3 class="text-sm font-semibold text-white">Video & Sync Settings</h3>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">YouTube Video ID or URL</label>
+          <div class="flex gap-2">
+            <input id="youtubeIdInput" type="text" value="GoUcAHBha40" class="w-full text-xs bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-white mono focus:outline-none focus:border-amber-500">
+            <button id="loadVideoBtn" class="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-3 py-2 rounded-lg transition">Load</button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Subtitles Time Offset (seconds)</label>
+          <div class="flex items-center gap-2">
+            <input id="offsetInput" type="number" step="0.1" value="0.0" class="w-24 text-xs bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white mono">
+            <span class="text-xs text-slate-400">Nudge earlier (-) or later (+)</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Paste any standard `.srt` format in the editor on the right. You can adjust the offset if the audio does not align perfectly with the captions.
+        </p>
+      </div>
+      <div class="md:col-span-2 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-slate-300 font-semibold">Raw SRT Subtitle Stream</label>
+          <button id="applySrtBtn" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1 rounded-md transition">Apply Transcript Changes</button>
+        </div>
+        <textarea id="srtTextarea" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 mono leading-normal focus:outline-none focus:border-amber-500"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Alignment & Exact Timings Drawer -->
+  <div id="audioAlignDrawer" class="hidden border-b border-slate-800 bg-slate-900/95 p-4 sm:p-6 transition-all duration-300">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- Option 1: Acoustic Waveform Analysis -->
+      <div class="space-y-3 bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2 text-indigo-400 font-semibold text-xs">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+          <span>Method A: Local Audio & Onset Alignment</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          YouTube IFrame sandboxing restricts direct audio DSP extraction due to browser cross-origin rules. Load an MP3/WAV file directly to run client-side Web Audio energy onset calculations across syllable boundaries.
+        </p>
+        <input id="audioFileInput" type="file" accept="audio/*" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+        <div id="audioFileStatus" class="text-[11px] mono text-slate-500">No local file loaded. Using YouTube player.</div>
+        <button id="runAcousticAlignBtn" disabled class="w-full text-xs font-semibold px-3 py-2 bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 text-white rounded-lg transition">
+          Align SRT to Audio Energy Onsets
+        </button>
+      </div>
+
+      <!-- Option 2: Exact JSON Word Timestamps -->
+      <div class="md:col-span-2 space-y-3 bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-amber-400 font-semibold text-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+            <span>Method B: Import Exact Whisper / Forced Aligner Word Data</span>
+          </div>
+          <button id="loadExactTimestampsBtn" class="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-md transition">
+            Apply Exact Word Timestamps
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Paste word-level timestamps generated from WhisperX, CTC Forced Aligner, or Whisper (<code class="mono text-amber-300">return_timestamps="word"</code>). Each word will immediately sync to its exact spoken millisecond.
+        </p>
+        <textarea id="exactJsonTextarea" rows="4" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 mono leading-normal focus:outline-none focus:border-amber-500" placeholder='[{"word": "all", "start": 0.39, "end": 0.65}, {"word": "right", "start": 0.68, "end": 0.95}, ...]'></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    
+    <!-- Left Column: Video Player & Chord Visualizer (lg: 5 cols) -->
+    <div class="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+      
+      <!-- Video Container -->
+      <div class="rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative aspect-video">
+        <div id="player" class="w-full h-full"></div>
+        <!-- Local Audio Player Overlay when Audio file is loaded -->
+        <div id="localAudioContainer" class="hidden absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+          <canvas id="waveformCanvas" class="w-full h-20 bg-slate-900/80 rounded-lg mb-4"></canvas>
+          <audio id="localAudioEl" controls class="w-full max-w-xs"></audio>
+          <button id="switchBackToYtBtn" class="mt-3 text-xs text-slate-400 hover:text-white underline">Switch back to YouTube video</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Captions List -->
+      <div id="captionsContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scroll-smooth">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+      <!-- Bottom Status Bar -->
+      <div class="px-5 py-2.5 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div>
+          Total Cue Points: <span id="cueCount" class="font-semibold text-slate-200">0</span>
+          <span id="timingModeBadge" class="ml-2 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">Estimated Duration Mode</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>Sync Engine Active</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Synchronized Words & Chords Stream (lg: 7 cols) -->
+    <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <div>
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <span>WhisperX Word & Chord Stream</span>
+            <span id="whisperActivePill" class="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">Aligned</span>
+          </h2>
+          <p class="text-xs text-slate-400">Exact millisecond word timing mapped to active harmony</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/30" id="timecodeDisplay">00:00.0</span>
+        </div>
+      </div>
+
+      <!-- Live Active Chord Spotlight Banner -->
+      <div class="mb-4 bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-indigo-500/15 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="text-2xl font-black text-amber-400 tracking-tight" id="liveChordName">A13</div>
+          <div class="text-xs text-slate-300">
+            <span class="font-semibold text-white" id="liveChordRole">Tonic Groove</span>
+            <div class="text-[11px] text-slate-400 font-mono" id="liveChordNotes">G4 - C#5 - F#5 (Bass: A1)</div>
+          </div>
+        </div>
+        <div class="flex gap-1.5" id="chordPillsContainer">
+          <span class="px-2 py-1 rounded text-[10px] font-bold border transition duration-150" id="pill-a13">A13</span>
+          <span class="px-2 py-1 rounded text-[10px] font-bold border transition duration-150" id="pill-ab13">A♭13</span>
+          <span class="px-2 py-1 rounded text-[10px] font-bold border transition duration-150" id="pill-a7">A7</span>
+          <span class="px-2 py-1 rounded text-[10px] font-bold border transition duration-150" id="pill-turnaround">G13 ➔ F♯13</span>
+        </div>
+      </div>
+
+      <!-- Captions Container -->
+      <div id="captionsContainer" class="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[560px] scroll-smooth">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- YouTube IFrame API Script -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <script>
+    // Embedded Whisper Pro ASR Full JSON Data
+    const whisperProData = {"text":"1\n00:00:00,000 --> 00:00:03,000\nMade with Whisper Pro ASR\n\n2\n00:00:04,250 --> 00:00:07,190\nRemember old dude from 2019, nice, clean, nigga,\n\n3\n00:00:07,370 --> 00:00:10,609\nDirty, other laundry laundry, took a scroll through his IG\n\n4\n00:00:10,609 --> 00:00:14,189\nJust to get a DM from his wife, what the fuck?\n\n5\n00:00:14,330 --> 00:00:16,030\nI was so confused, what shit don't she do?\n\n6\n00:00:16,329 --> 00:00:18,670\nShe didn't know about me, and I didn't no about it soon\n\n7\n00:00:18,670 --> 00:00:21,050\nI opened up the messages and had to hit the zoom\n\n8\n00:00:21,050 --> 00:00:23,589\nTurns out the girl was really a dude\n\n9\n00:00:24,129 --> 00:00:26,510\nnigga think he's sleep back till I sleep back\n\n10\n00:00:26,510 --> 00:00:28,989\nGot my lick back, turn the nigga to a dick back\n\n11\n00:00:28,989 --> 00:00:31,010\nI moved on, dropped a couple of songs\n\n12\n00:00:31,010 --> 00:00:33,369\nAnd then I went to God's sign, now it's 2021\n\n13\n00:00:33,369 --> 00:00:36,670\nOne, two, one, hey, I just feel like it's an apartment opportunity\n\n14\n00:00:36,670 --> 00:00:39,789\nCross yet to attack, what's happening here, I mean...\n\n15\n00:00:39,859 --> 00:00:41,460\nLet's get this guy to shit with him!\n\n16\n00:00:46,009 --> 00:00:48,530\nI'm making so much money, I'm all over the net\n\n17\n00:00:48,530 --> 00:00:50,950\nI'm always so fast, no time to process\n\n18\n00:00:50,950 --> 00:00:53,630\nAnd no I'm not in the game, but I'm Always on set\n\n19\n00:00:53,630 --> 00:00:56,189\nChris Watch's true drop, label on the beat\n\n20\n00:00:56,189 --> 00:00:59,030\nNow I'm makin' TikTok, music won't be fun\n\n21\n00:00:59,030 --> 00:01:00,850\nI need a cleanse, need a detox\n\n22\n00:01:00,850 --> 00:01:03,869\nBut we ain't got time to stop, the charts need us\n\n23\n00:01:03,869 --> 00:01:05,969\nIf they go fast for a beat, 2023\n\n24\n00:01:05,969 --> 00:01:08,609\nI'm snackin' lots of cheese and makin money\n\n25\n00:01:09,129 --> 00:01:10,109\nMy grass is really green\n\n26\n00:01:10,670 --> 00:01:12,269\nHonestly, I can't even fuckin' count them\n\n27\n00:01:12,269 --> 00:01:14,489\nIt's a really dark time for me. I'm going through a lot.\n\n28\n00:01:14,670 --> 00:01:15,549\nBye a lot, you'll draw.\n\n29\n00:01:15,849 --> 00:01:16,829\nUm, I wouldn't draw.\n\n30\n00:01:17,120 --> 00:01:21,620\nNo, it's a natural plan. I don't think I'm just saying.\n\n31\n00:01:21,939 --> 00:01:23,599\nI'm not an addict. Wanna talk about it?\n\n32\n00:01:23,599 --> 00:01:27,459\nUh, I mean fuck, I like pills. I like drugs. I'm like hitting money.\n\n33\n00:01:27,620 --> 00:01:30,719\nI like strippers. I'd like to book. I liked day drinking and day parties.\n\n34\n00:01:30,879 --> 00:01:32,900\nI like Hollywood. I'll like doing Hollywood shit.\n\n35\n00:01:33,200 --> 00:01:34,939\nTurn it probably wood. What can I say?\n\n36\n00:01:35,260 --> 00:01:38,640\nShipworks, it feels good. And my self-worths at it all time low.\n\n37\n00:01:38,920 --> 00:01:44,459\nIt's just when it couldn't hit worse. My ex crashed my place and destroyed all my own.\n\n38\n00:01:44,459 --> 00:01:48,840\nWhoopsy made a oopsy, $100,000 ups made me loopy\n\n39\n00:01:48,840 --> 00:01:50,959\nI ain't a killer but don't push me\n\n40\n00:01:50,959 --> 00:01:53,459\nDon't wanna have to turn a neck up, turn a soupe\n\n41\n00:01:53,459 --> 00:01:56,719\nOh, you row, don't she, we're getting besides you, so sorry\n\n42\n00:01:56,719 --> 00:01:57,739\nTake it easy, okay?\n\n43\n00:01:58,019 --> 00:02:00,659\nOh, I need that, let's do this beauty exercise tomorrow\n\n44\n00:02:00,900 --> 00:02:01,560\nOkay, we got to-\n\n45\n00:02:02,780 --> 00:02:03,040\nLet's go!\n\n46\n00:02:03,299 --> 00:02:05,040\nAh, ah, ah...\n","segments":[{"start":4.25,"end":7.19,"text":"Remember old dude from 2019, nice, clean, nigga,","words":[{"start":4.25,"end":4.65,"word":" Remember","probability":0.7641122341156006},{"start":4.65,"end":4.97,"word":" old","probability":0.7461833953857422},{"start":4.97,"end":5.17,"word":" dude","probability":0.30393853783607483},{"start":5.17,"end":5.35,"word":" from","probability":0.9609482288360596},{"start":5.35,"end":5.83,"word":" 2019,","probability":0.8893336057662964},{"start":6.39,"end":6.55,"word":" nice,","probability":0.8162842392921448},{"start":6.65,"end":6.81,"word":" clean,","probability":0.9814355969429016},{"start":7.07,"end":7.19,"word":" nigga,","probability":0.7731093168258667}],"language":"en"},{"start":7.37,"end":10.61,"text":"Dirty, other laundry laundry, took a scroll through his IG","words":[{"start":7.37,"end":7.81,"word":" Dirty,","probability":0.28752169758081436},{"start":7.99,"end":8.11,"word":" other","probability":0.15302926301956177},{"start":8.11,"end":8.71,"word":" laundry","probability":0.7296778559684753},{"start":8.71,"end":8.99,"word":" laundry,","probability":0.44346073269844055},{"start":9.33,"end":9.33,"word":" took","probability":0.8416628837585449},{"start":9.33,"end":9.47,"word":" a","probability":0.9741435050964355},{"start":9.47,"end":9.65,"word":" scroll","probability":0.8804106116294861},{"start":9.65,"end":9.93,"word":" through","probability":0.8265796303749084},{"start":9.93,"end":10.19,"word":" his","probability":0.9139870405197144},{"start":10.19,"end":10.61,"word":" IG","probability":0.9196785688400269}],"language":"en"},{"start":10.61,"end":14.19,"text":"Just to get a DM from his wife, what the fuck?","words":[{"start":10.61,"end":11.23,"word":" Just","probability":0.3371370732784271},{"start":11.23,"end":11.39,"word":" to","probability":0.968555748462677},{"start":11.39,"end":11.55,"word":" get","probability":0.9943945407867432},{"start":11.55,"end":11.71,"word":" a","probability":0.9035813212394714},{"start":11.71,"end":12.13,"word":" DM","probability":0.9592125415802002},{"start":12.13,"end":12.55,"word":" from","probability":0.9746398329734802},{"start":12.55,"end":13.13,"word":" his","probability":0.944248378276825},{"start":13.13,"end":13.47,"word":" wife,","probability":0.9660094976425171},{"start":13.67,"end":13.85,"word":" what","probability":0.33062970638275146},{"start":13.85,"end":13.97,"word":" the","probability":0.9779732823371887},{"start":13.97,"end":14.19,"word":" fuck?","probability":0.7527896761894226}],"language":"en"},{"start":14.33,"end":16.03,"text":"I was so confused, what shit don't she do?","words":[{"start":14.33,"end":14.41,"word":" I","probability":0.9297625422477722},{"start":14.41,"end":14.51,"word":" was","probability":0.9946151375770569},{"start":14.51,"end":14.69,"word":" so","probability":0.9987229704856873},{"start":14.69,"end":15.05,"word":" confused,","probability":0.9967028498649597},{"start":15.21,"end":15.33,"word":" what","probability":0.9208037853240967},{"start":15.33,"end":15.47,"word":" shit","probability":0.46310991048812866},{"start":15.47,"end":15.65,"word":" don't","probability":0.7594612240791321},{"start":15.65,"end":15.79,"word":" she","probability":0.5280306935310364},{"start":15.79,"end":16.03,"word":" do?","probability":0.9954574108123779}],"language":"en"},{"start":16.33,"end":18.67,"text":"She didn't know about me, and I didn't no about it soon","words":[{"start":16.33,"end":16.45,"word":" She","probability":0.9655171632766724},{"start":16.45,"end":16.79,"word":" didn't","probability":0.9890377521514893},{"start":16.79,"end":16.91,"word":" know","probability":0.9989544153213501},{"start":16.91,"end":17.19,"word":" about","probability":0.9712764620780945},{"start":17.19,"end":17.39,"word":" me,","probability":0.9954575300216675},{"start":17.51,"end":17.59,"word":" and","probability":0.9768881797790527},{"start":17.59,"end":17.67,"word":" I","probability":0.9895032644271851},{"start":17.67,"end":18.01,"word":" didn't","probability":0.9968218803405762},{"start":18.01,"end":18.15,"word":" no","probability":0.0004585890274029225},{"start":18.15,"end":18.33,"word":" about","probability":0.4373207986354828},{"start":18.33,"end":18.49,"word":" it","probability":0.1055973544716835},{"start":18.49,"end":18.67,"word":" soon","probability":0.9199073910713196}],"language":"en"},{"start":18.67,"end":21.05,"text":"I opened up the messages and had to hit the zoom","words":[{"start":18.67,"end":18.95,"word":" I","probability":0.6290404796600342},{"start":18.95,"end":19.23,"word":" opened","probability":0.8940831422805786},{"start":19.23,"end":19.41,"word":" up","probability":0.9939192533493042},{"start":19.41,"end":19.57,"word":" the","probability":0.9920710921287537},{"start":19.57,"end":19.87,"word":" messages","probability":0.8498956561088562},{"start":19.87,"end":20.19,"word":" and","probability":0.5124768614768982},{"start":20.19,"end":20.37,"word":" had","probability":0.9735885262489319},{"start":20.37,"end":20.51,"word":" to","probability":0.9965552091598511},{"start":20.51,"end":20.65,"word":" hit","probability":0.9939785003662109},{"start":20.65,"end":20.81,"word":" the","probability":0.9811790585517883},{"start":20.81,"end":21.05,"word":" zoom","probability":0.48960402607917786}],"language":"en"},{"start":21.05,"end":23.59,"text":"Turns out the girl was really a dude","words":[{"start":21.05,"end":21.71,"word":" Turns","probability":0.9560285210609436},{"start":21.71,"end":22.03,"word":" out","probability":0.9962453246116638},{"start":22.03,"end":22.23,"word":" the","probability":0.9325002431869507},{"start":22.23,"end":22.51,"word":" girl","probability":0.9891282916069031},{"start":22.51,"end":22.77,"word":" was","probability":0.9972203969955444},{"start":22.77,"end":23.09,"word":" really","probability":0.991675615310669},{"start":23.09,"end":23.31,"word":" a","probability":0.9544655680656433},{"start":23.31,"end":23.59,"word":" dude","probability":0.5515762567520142}],"language":"en"},{"start":24.13,"end":26.51,"text":"nigga think he's sleep back till I sleep back","words":[{"start":24.13,"end":24.53,"word":" nigga","probability":0.342700719833374},{"start":24.53,"end":24.79,"word":" think","probability":0.5837734341621399},{"start":24.79,"end":24.99,"word":" he's","probability":0.651557445526123},{"start":24.99,"end":25.19,"word":" sleep","probability":0.5431381464004517},{"start":25.19,"end":25.53,"word":" back","probability":0.8035544157028198},{"start":25.53,"end":25.73,"word":" till","probability":0.24674293398857117},{"start":25.73,"end":25.89,"word":" I","probability":0.9758517742156982},{"start":25.89,"end":26.15,"word":" sleep","probability":0.8185804486274719},{"start":26.15,"end":26.51,"word":" back","probability":0.980880081653595}],"language":"en"},{"start":26.51,"end":28.99,"text":"Got my lick back, turn the nigga to a dick back","words":[{"start":26.51,"end":26.69,"word":" Got","probability":0.33152052760124207},{"start":26.69,"end":26.85,"word":" my","probability":0.9969077706336975},{"start":26.85,"end":27.11,"word":" lick","probability":0.6803410649299622},{"start":27.11,"end":27.39,"word":" back,","probability":0.9723012447357178},{"start":27.57,"end":27.69,"word":" turn","probability":0.8396083116531372},{"start":27.69,"end":27.81,"word":" the","probability":0.7734106779098511},{"start":27.81,"end":27.97,"word":" nigga","probability":0.5272661447525024},{"start":27.97,"end":28.29,"word":" to","probability":0.9659628868103027},{"start":28.29,"end":28.41,"word":" a","probability":0.9185231328010559},{"start":28.41,"end":28.65,"word":" dick","probability":0.34570103883743286},{"start":28.65,"end":28.99,"word":" back","probability":0.5189421772956848}],"language":"en"},{"start":28.99,"end":31.01,"text":"I moved on, dropped a couple of songs","words":[{"start":28.99,"end":29.35,"word":" I","probability":0.8747313618659973},{"start":29.35,"end":29.63,"word":" moved","probability":0.9067103862762451},{"start":29.63,"end":29.93,"word":" on,","probability":0.9932202100753784},{"start":30.07,"end":30.17,"word":" dropped","probability":0.9715209007263184},{"start":30.17,"end":30.29,"word":" a","probability":0.9935629367828369},{"start":30.29,"end":30.57,"word":" couple","probability":0.9955868721008301},{"start":30.57,"end":30.73,"word":" of","probability":0.9837379455566406},{"start":30.73,"end":31.01,"word":" songs","probability":0.9962122440338135}],"language":"en"},{"start":31.01,"end":33.37,"text":"And then I went to God's sign, now it's 2021","words":[{"start":31.01,"end":31.27,"word":" And","probability":0.17801935970783234},{"start":31.27,"end":31.43,"word":" then","probability":0.9706648588180542},{"start":31.43,"end":31.57,"word":" I","probability":0.9399675726890564},{"start":31.57,"end":31.71,"word":" went","probability":0.7661368250846863},{"start":31.71,"end":31.85,"word":" to","probability":0.47337037324905396},{"start":31.85,"end":32.27,"word":" God's","probability":0.49432846903800964},{"start":32.27,"end":32.39,"word":" sign,","probability":0.5908393859863281},{"start":32.63,"end":32.69,"word":" now","probability":0.2815907895565033},{"start":32.69,"end":32.81,"word":" it's","probability":0.9410105347633362},{"start":32.81,"end":33.37,"word":" 2021","probability":0.7948442101478577}],"language":"en"},{"start":33.37,"end":36.67,"text":"One, two, one, hey, I just feel like it's an apartment opportunity","words":[{"start":33.37,"end":33.63,"word":" One,","probability":0.05195533484220505},{"start":33.77,"end":33.95,"word":" two,","probability":0.4963480830192566},{"start":34.35,"end":34.37,"word":" one,","probability":0.4117429256439209},{"start":34.49,"end":34.59,"word":" hey,","probability":0.5994126796722412},{"start":34.77,"end":34.87,"word":" I","probability":0.9023932814598083},{"start":34.87,"end":34.99,"word":" just","probability":0.8345270752906799},{"start":34.99,"end":35.17,"word":" feel","probability":0.36529168486595154},{"start":35.17,"end":35.41,"word":" like","probability":0.9591091275215149},{"start":35.41,"end":35.69,"word":" it's","probability":0.5689985454082489},{"start":35.69,"end":35.81,"word":" an","probability":0.9347423911094666},{"start":35.81,"end":36.03,"word":" apartment","probability":0.27148914337158203},{"start":36.03,"end":36.67,"word":" opportunity","probability":0.3569307029247284}],"language":"en"},{"start":36.67,"end":39.79,"text":"Cross yet to attack, what's happening here, I mean...","words":[{"start":36.67,"end":37.25,"word":" Cross","probability":0.1413428783416748},{"start":37.25,"end":37.53,"word":" yet","probability":0.09107600152492523},{"start":37.53,"end":37.67,"word":" to","probability":0.9742529392242432},{"start":37.67,"end":38.03,"word":" attack,","probability":0.44255706667900085},{"start":38.23,"end":38.47,"word":" what's","probability":0.7670842409133911},{"start":38.47,"end":38.77,"word":" happening","probability":0.8953642845153809},{"start":38.77,"end":39.09,"word":" here,","probability":0.9397182464599609},{"start":39.19,"end":39.21,"word":" I","probability":0.7461355328559875},{"start":39.21,"end":39.79,"word":" mean...","probability":0.46769000589847565}],"language":"en"},{"start":39.86,"end":41.46,"text":"Let's get this guy to shit with him!","words":[{"start":39.86,"end":40.22,"word":" Let's","probability":0.5041907802224159},{"start":40.22,"end":40.32,"word":" get","probability":0.28773391246795654},{"start":40.32,"end":40.52,"word":" this","probability":0.8782640099525452},{"start":40.52,"end":40.74,"word":" guy","probability":0.9181618690490723},{"start":40.74,"end":40.94,"word":" to","probability":0.24286729097366333},{"start":40.94,"end":41.1,"word":" shit","probability":0.08931653946638107},{"start":41.1,"end":41.28,"word":" with","probability":0.5289081335067749},{"start":41.28,"end":41.46,"word":" him!","probability":0.7970106601715088}],"language":"en"},{"start":46.01,"end":48.53,"text":"I'm making so much money, I'm all over the net","words":[{"start":46.01,"end":46.45,"word":" I'm","probability":0.4161897078156471},{"start":46.45,"end":46.59,"word":" making","probability":0.3656681478023529},{"start":46.59,"end":46.81,"word":" so","probability":0.2360011488199234},{"start":46.81,"end":47.01,"word":" much","probability":0.02163153700530529},{"start":47.01,"end":47.25,"word":" money,","probability":0.9763295650482178},{"start":47.25,"end":47.61,"word":" I'm","probability":0.9496164321899414},{"start":47.61,"end":47.85,"word":" all","probability":0.9204652905464172},{"start":47.85,"end":48.15,"word":" over","probability":0.9917431473731995},{"start":48.15,"end":48.31,"word":" the","probability":0.9520006775856018},{"start":48.31,"end":48.53,"word":" net","probability":0.8110637664794922}],"language":"en"},{"start":48.53,"end":50.95,"text":"I'm always so fast, no time to process","words":[{"start":48.53,"end":49.01,"word":" I'm","probability":0.8127793669700623},{"start":49.01,"end":49.15,"word":" always","probability":0.21622444689273834},{"start":49.15,"end":49.47,"word":" so","probability":0.9766413569450378},{"start":49.47,"end":49.75,"word":" fast,","probability":0.9882256984710693},{"start":49.75,"end":50.03,"word":" no","probability":0.9651653170585632},{"start":50.03,"end":50.27,"word":" time","probability":0.9919542670249939},{"start":50.27,"end":50.49,"word":" to","probability":0.9946476817131042},{"start":50.49,"end":50.95,"word":" process","probability":0.977916419506073}],"language":"en"},{"start":50.95,"end":53.63,"text":"And no I'm not in the game, but I'm Always on set","words":[{"start":50.95,"end":51.35,"word":" And","probability":0.26697617769241333},{"start":51.35,"end":51.51,"word":" no","probability":0.6130586862564087},{"start":51.51,"end":51.71,"word":" I'm","probability":0.706902340054512},{"start":51.71,"end":51.81,"word":" not","probability":0.9938865303993225},{"start":51.81,"end":51.97,"word":" in","probability":0.9298864603042603},{"start":51.97,"end":52.05,"word":" the","probability":0.8050222396850586},{"start":52.05,"end":52.27,"word":" game,","probability":0.5332136154174805},{"start":52.27,"end":52.49,"word":" but","probability":0.9687539339065552},{"start":52.49,"end":52.73,"word":" I'm","probability":0.987561970949173},{"start":52.73,"end":53.05,"word":" Always","probability":0.0007920009084045887},{"start":53.05,"end":53.31,"word":" on","probability":0.6040743589401245},{"start":53.31,"end":53.63,"word":" set","probability":0.9862516522407532}],"language":"en"},{"start":53.63,"end":56.19,"text":"Chris Watch's true drop, label on the beat","words":[{"start":53.63,"end":54.29,"word":" Chris","probability":0.30163657665252686},{"start":54.29,"end":54.81,"word":" Watch's","probability":0.12299193069338799},{"start":54.81,"end":54.91,"word":" true","probability":0.38104188442230225},{"start":54.91,"end":55.27,"word":" drop,","probability":0.4650537073612213},{"start":55.37,"end":55.55,"word":" label","probability":0.4175228774547577},{"start":55.55,"end":55.79,"word":" on","probability":0.28165456652641296},{"start":55.79,"end":55.97,"word":" the","probability":0.9111804366111755},{"start":55.97,"end":56.19,"word":" beat","probability":0.08340249210596085}],"language":"en"},{"start":56.19,"end":59.03,"text":"Now I'm makin' TikTok, music won't be fun","words":[{"start":56.19,"end":56.71,"word":" Now","probability":0.12569773197174072},{"start":56.71,"end":56.97,"word":" I'm","probability":0.9448886811733246},{"start":56.97,"end":57.23,"word":" makin'","probability":0.49742298293858767},{"start":57.37,"end":57.49,"word":" TikTok,","probability":0.47788020968437195},{"start":57.91,"end":58.15,"word":" music","probability":0.8356696963310242},{"start":58.15,"end":58.63,"word":" won't","probability":0.4032850004732609},{"start":58.63,"end":58.71,"word":" be","probability":0.9879491329193115},{"start":58.71,"end":59.03,"word":" fun","probability":0.9173163175582886}],"language":"en"},{"start":59.03,"end":60.85,"text":"I need a cleanse, need a detox","words":[{"start":59.03,"end":59.43,"word":" I","probability":0.8986494541168213},{"start":59.43,"end":59.59,"word":" need","probability":0.2784932553768158},{"start":59.59,"end":59.79,"word":" a","probability":0.9172000288963318},{"start":59.79,"end":60.01,"word":" cleanse,","probability":0.17280255258083344},{"start":60.17,"end":60.29,"word":" need","probability":0.8141596913337708},{"start":60.29,"end":60.47,"word":" a","probability":0.9878053665161133},{"start":60.47,"end":60.85,"word":" detox","probability":0.7056141495704651}],"language":"en"},{"start":60.85,"end":63.87,"text":"But we ain't got time to stop, the charts need us","words":[{"start":60.85,"end":61.37,"word":" But","probability":0.7294355630874634},{"start":61.37,"end":61.57,"word":" we","probability":0.9833804368972778},{"start":61.57,"end":61.71,"word":" ain't","probability":0.9981949627399445},{"start":61.71,"end":61.87,"word":" got","probability":0.9726108312606812},{"start":61.87,"end":62.27,"word":" time","probability":0.9945841431617737},{"start":62.27,"end":62.47,"word":" to","probability":0.991550087928772},{"start":62.47,"end":62.73,"word":" stop,","probability":0.9813506603240967},{"start":62.89,"end":62.91,"word":" the","probability":0.9199668169021606},{"start":62.91,"end":63.17,"word":" charts","probability":0.8705640435218811},{"start":63.17,"end":63.49,"word":" need","probability":0.9649927020072937},{"start":63.49,"end":63.87,"word":" us","probability":0.8005625009536743}],"language":"en"},{"start":63.87,"end":65.97,"text":"If they go fast for a beat, 2023","words":[{"start":63.87,"end":64.07,"word":" If","probability":0.8082301616668701},{"start":64.07,"end":64.17,"word":" they","probability":0.7262274622917175},{"start":64.17,"end":64.37,"word":" go","probability":0.07345069199800491},{"start":64.37,"end":64.71,"word":" fast","probability":0.8880994319915771},{"start":64.71,"end":65.01,"word":" for","probability":0.8825613260269165},{"start":65.01,"end":65.23,"word":" a","probability":0.7092065215110779},{"start":65.23,"end":65.29,"word":" beat,","probability":0.9271074533462524},{"start":65.51,"end":65.97,"word":" 2023","probability":0.8966776728630066}],"language":"en"},{"start":65.97,"end":68.61,"text":"I'm snackin' lots of cheese and makin money","words":[{"start":65.97,"end":66.69,"word":" I'm","probability":0.7510330975055695},{"start":66.69,"end":67.07,"word":" snackin'","probability":0.4008742868900299},{"start":67.17,"end":67.25,"word":" lots","probability":0.9896676540374756},{"start":67.25,"end":67.49,"word":" of","probability":0.8002421259880066},{"start":67.49,"end":67.71,"word":" cheese","probability":0.5575174689292908},{"start":67.71,"end":67.95,"word":" and","probability":0.7903638482093811},{"start":67.95,"end":68.25,"word":" makin","probability":0.9388982653617859},{"start":68.25,"end":68.61,"word":" money","probability":0.0025483702775090933}],"language":"en"},{"start":69.13,"end":70.11,"text":"My grass is really green","words":[{"start":68.99,"end":69.21,"word":" My","probability":0.9338955283164978},{"start":69.21,"end":69.43,"word":" grass","probability":0.4774243235588074},{"start":69.43,"end":69.63,"word":" is","probability":0.9792952537536621},{"start":69.63,"end":69.85,"word":" really","probability":0.9972981810569763},{"start":69.85,"end":70.11,"word":" green","probability":0.8825249671936035}],"language":"en"},{"start":70.67,"end":72.27,"text":"Honestly, I can't even fuckin' count them","words":[{"start":70.67,"end":71.11,"word":" Honestly,","probability":0.5157867670059204},{"start":71.37,"end":71.37,"word":" I","probability":0.9971528053283691},{"start":71.37,"end":71.57,"word":" can't","probability":0.9942212402820587},{"start":71.57,"end":71.65,"word":" even","probability":0.9989410042762756},{"start":71.65,"end":71.87,"word":" fuckin'","probability":0.5626009702682495},{"start":72.03,"end":72.11,"word":" count","probability":0.47074323892593384},{"start":72.11,"end":72.27,"word":" them","probability":0.5331739783287048}],"language":"en"},{"start":72.27,"end":74.49,"text":"It's a really dark time for me. I'm going through a lot.","words":[{"start":72.27,"end":72.55,"word":" It's","probability":0.7896052896976471},{"start":72.55,"end":72.65,"word":" a","probability":0.9768630266189575},{"start":72.65,"end":72.85,"word":" really","probability":0.9889165163040161},{"start":72.85,"end":73.05,"word":" dark","probability":0.994325578212738},{"start":73.05,"end":73.33,"word":" time","probability":0.9940104484558105},{"start":73.33,"end":73.49,"word":" for","probability":0.9920390844345093},{"start":73.49,"end":73.63,"word":" me.","probability":0.9991167187690735},{"start":73.79,"end":73.93,"word":" I'm","probability":0.9820019900798798},{"start":73.93,"end":74.05,"word":" going","probability":0.8818442821502686},{"start":74.05,"end":74.23,"word":" through","probability":0.9547224640846252},{"start":74.23,"end":74.33,"word":" a","probability":0.9294933676719666},{"start":74.33,"end":74.49,"word":" lot.","probability":0.8026055097579956}],"language":"en"},{"start":74.67,"end":75.55,"text":"Bye a lot, you'll draw.","words":[{"start":74.67,"end":74.89,"word":" Bye","probability":0.5808285474777222},{"start":74.89,"end":74.99,"word":" a","probability":0.583596408367157},{"start":74.99,"end":75.09,"word":" lot,","probability":0.995951771736145},{"start":75.17,"end":75.35,"word":" you'll","probability":0.43564368039369583},{"start":75.35,"end":75.55,"word":" draw.","probability":0.5120734572410583}],"language":"en"},{"start":75.85,"end":76.83,"text":"Um, I wouldn't draw.","words":[{"start":75.85,"end":76.01,"word":" Um,","probability":0.3062892556190491},{"start":76.25,"end":76.33,"word":" I","probability":0.9830916523933411},{"start":76.33,"end":76.65,"word":" wouldn't","probability":0.6908965408802032},{"start":76.65,"end":76.83,"word":" draw.","probability":0.6008315086364746}],"language":"en"},{"start":77.12,"end":81.62,"text":"No, it's a natural plan. I don't think I'm just saying.","words":[{"start":77.12,"end":77.54,"word":" No,","probability":0.21408481895923615},{"start":77.68,"end":78.1,"word":" it's","probability":0.8917871415615082},{"start":78.1,"end":78.22,"word":" a","probability":0.4078528583049774},{"start":78.22,"end":78.88,"word":" natural","probability":0.7184407711029053},{"start":78.88,"end":79.22,"word":" plan.","probability":0.2152107059955597},{"start":79.58,"end":79.58,"word":" I","probability":0.9023340344429016},{"start":79.58,"end":80.54,"word":" don't","probability":0.8767271637916565},{"start":80.54,"end":80.7,"word":" think","probability":0.9168652296066284},{"start":80.7,"end":81.06,"word":" I'm","probability":0.8030068278312683},{"start":81.06,"end":81.22,"word":" just","probability":0.38277754187583923},{"start":81.22,"end":81.62,"word":" saying.","probability":0.8220874071121216}],"language":"en"},{"start":81.94,"end":83.6,"text":"I'm not an addict. Wanna talk about it?","words":[{"start":81.94,"end":82.1,"word":" I'm","probability":0.9489040076732635},{"start":82.1,"end":82.2,"word":" not","probability":0.9797642230987549},{"start":82.2,"end":82.4,"word":" an","probability":0.8446897268295288},{"start":82.4,"end":82.64,"word":" addict.","probability":0.1845276653766632},{"start":82.9,"end":83.0,"word":" Wanna","probability":0.08839656412601471},{"start":83.0,"end":83.24,"word":" talk","probability":0.9811752438545227},{"start":83.24,"end":83.48,"word":" about","probability":0.9963006973266602},{"start":83.48,"end":83.6,"word":" it?","probability":0.5208836197853088}],"language":"en"},{"start":83.6,"end":87.46,"text":"Uh, I mean fuck, I like pills. I like drugs. I'm like hitting money.","words":[{"start":83.6,"end":83.8,"word":" Uh,","probability":0.1547260284423828},{"start":84.1,"end":84.42,"word":" I","probability":0.9732037782669067},{"start":84.42,"end":84.6,"word":" mean","probability":0.9760618209838867},{"start":84.6,"end":84.96,"word":" fuck,","probability":0.8028569221496582},{"start":85.16,"end":85.22,"word":" I","probability":0.9879264831542969},{"start":85.22,"end":85.42,"word":" like","probability":0.9939272403717041},{"start":85.42,"end":85.78,"word":" pills.","probability":0.9492963552474976},{"start":85.98,"end":86.0,"word":" I","probability":0.9898343086242676},{"start":86.0,"end":86.2,"word":" like","probability":0.9928351044654846},{"start":86.2,"end":86.44,"word":" drugs.","probability":0.9478583335876465},{"start":86.72,"end":86.78,"word":" I'm","probability":0.5002212291583419},{"start":86.78,"end":86.88,"word":" like","probability":0.6142154335975647},{"start":86.88,"end":87.12,"word":" hitting","probability":0.6270767450332642},{"start":87.12,"end":87.46,"word":" money.","probability":0.9832325577735901}],"language":"en"},{"start":87.62,"end":90.72,"text":"I like strippers. I'd like to book. I liked day drinking and day parties.","words":[{"start":87.62,"end":87.68,"word":" I","probability":0.9944291114807129},{"start":87.68,"end":87.88,"word":" like","probability":0.9934388995170593},{"start":87.88,"end":88.26,"word":" strippers.","probability":0.5784525126218796},{"start":88.36,"end":88.52,"word":" I'd","probability":0.49631182028679177},{"start":88.52,"end":88.6,"word":" like","probability":0.9944697618484497},{"start":88.6,"end":88.76,"word":" to","probability":0.9646536707878113},{"start":88.76,"end":88.92,"word":" book.","probability":0.18878468871116638},{"start":89.08,"end":89.12,"word":" I","probability":0.9897972345352173},{"start":89.12,"end":89.3,"word":" liked","probability":0.007078881841152906},{"start":89.3,"end":89.58,"word":" day","probability":0.638991117477417},{"start":89.58,"end":89.98,"word":" drinking","probability":0.8923102021217346},{"start":89.98,"end":90.16,"word":" and","probability":0.49080508947372437},{"start":90.16,"end":90.36,"word":" day","probability":0.9452674984931946},{"start":90.36,"end":90.72,"word":" parties.","probability":0.9757232666015625}],"language":"en"},{"start":90.88,"end":92.9,"text":"I like Hollywood. I'll like doing Hollywood shit.","words":[{"start":90.88,"end":90.94,"word":" I","probability":0.6647046804428101},{"start":90.94,"end":91.18,"word":" like","probability":0.8648172616958618},{"start":91.18,"end":91.38,"word":" Hollywood.","probability":0.8757573962211609},{"start":91.46,"end":91.62,"word":" I'll","probability":0.4984668826800771},{"start":91.62,"end":91.78,"word":" like","probability":0.9196940660476685},{"start":91.78,"end":92.06,"word":" doing","probability":0.8614171743392944},{"start":92.06,"end":92.44,"word":" Hollywood","probability":0.9864418506622314},{"start":92.44,"end":92.9,"word":" shit.","probability":0.91163170337677}],"language":"en"},{"start":93.2,"end":94.94,"text":"Turn it probably wood. What can I say?","words":[{"start":93.2,"end":93.3,"word":" Turn","probability":0.0715508684515953},{"start":93.3,"end":93.42,"word":" it","probability":0.8900905847549438},{"start":93.42,"end":93.7,"word":" probably","probability":0.7329310178756714},{"start":93.7,"end":94.0,"word":" wood.","probability":0.42586928606033325},{"start":94.3,"end":94.4,"word":" What","probability":0.8035375475883484},{"start":94.4,"end":94.54,"word":" can","probability":0.8834388852119446},{"start":94.54,"end":94.66,"word":" I","probability":0.986057698726654},{"start":94.66,"end":94.94,"word":" say?","probability":0.9994497895240784}],"language":"en"},{"start":95.26,"end":98.64,"text":"Shipworks, it feels good. And my self-worths at it all time low.","words":[{"start":95.26,"end":95.7,"word":" Shipworks,","probability":0.44197721779346466},{"start":95.9,"end":95.9,"word":" it","probability":0.9774048328399658},{"start":95.9,"end":96.18,"word":" feels","probability":0.9870554208755493},{"start":96.18,"end":96.48,"word":" good.","probability":0.9972315430641174},{"start":96.62,"end":96.7,"word":" And","probability":0.40508297085762024},{"start":96.7,"end":96.84,"word":" my","probability":0.29838094115257263},{"start":96.84,"end":97.1,"word":" self","probability":0.8324398398399353},{"start":97.1,"end":97.56,"word":"-worths","probability":0.5155524661143621},{"start":97.56,"end":97.66,"word":" at","probability":0.4157952666282654},{"start":97.66,"end":97.78,"word":" it","probability":0.8290452361106873},{"start":97.78,"end":98.0,"word":" all","probability":0.6596834659576416},{"start":98.0,"end":98.38,"word":" time","probability":0.8733609914779663},{"start":98.38,"end":98.64,"word":" low.","probability":0.6872383952140808}],"language":"en"},{"start":98.92,"end":104.46,"text":"It's just when it couldn't hit worse. My ex crashed my place and destroyed all my own.","words":[{"start":98.92,"end":99.14,"word":" It's","probability":0.3517453819513321},{"start":99.14,"end":99.24,"word":" just","probability":0.9978421926498413},{"start":99.24,"end":99.52,"word":" when","probability":0.9758952260017395},{"start":99.52,"end":99.68,"word":" it","probability":0.9923139214515686},{"start":99.68,"end":99.98,"word":" couldn't","probability":0.9953269064426422},{"start":100.16,"end":100.16,"word":" hit","probability":0.6272051930427551},{"start":100.16,"end":100.44,"word":" worse.","probability":0.8385671973228455},{"start":100.74,"end":100.86,"word":" My","probability":0.9924432635307312},{"start":100.86,"end":101.06,"word":" ex","probability":0.7984105348587036},{"start":101.06,"end":101.42,"word":" crashed","probability":0.6137681603431702},{"start":101.42,"end":101.68,"word":" my","probability":0.6059705018997192},{"start":101.68,"end":101.88,"word":" place","probability":0.9280078411102295},{"start":101.88,"end":102.18,"word":" and","probability":0.6738814115524292},{"start":102.18,"end":102.52,"word":" destroyed","probability":0.7314678430557251},{"start":102.52,"end":103.18,"word":" all","probability":0.639921247959137},{"start":103.18,"end":103.66,"word":" my","probability":0.32968732714653015},{"start":103.66,"end":104.46,"word":" own.","probability":0.4253360331058502}],"language":"en"},{"start":104.46,"end":108.84,"text":"Whoopsy made a oopsy, $100,000 ups made me loopy","words":[{"start":104.46,"end":105.18,"word":" Whoopsy","probability":0.524464008708795},{"start":105.18,"end":105.44,"word":" made","probability":0.43747445940971375},{"start":105.44,"end":105.62,"word":" a","probability":0.8561056852340698},{"start":105.62,"end":106.14,"word":" oopsy,","probability":0.7088624040285746},{"start":106.3,"end":106.74,"word":" $100","probability":0.7449424564838409},{"start":106.74,"end":107.3,"word":",000","probability":0.9271588325500488},{"start":107.3,"end":107.74,"word":" ups","probability":0.33071915805339813},{"start":107.74,"end":107.92,"word":" made","probability":0.724523663520813},{"start":107.92,"end":108.1,"word":" me","probability":0.9957129955291748},{"start":108.1,"end":108.84,"word":" loopy","probability":0.723850354552269}],"language":"en"},{"start":108.84,"end":110.96,"text":"I ain't a killer but don't push me","words":[{"start":108.84,"end":109.34,"word":" I","probability":0.4520249366760254},{"start":109.34,"end":109.52,"word":" ain't","probability":0.9978725612163544},{"start":109.52,"end":109.62,"word":" a","probability":0.9848960638046265},{"start":109.62,"end":109.82,"word":" killer","probability":0.7635334730148315},{"start":109.82,"end":110.06,"word":" but","probability":0.7357466816902161},{"start":110.06,"end":110.28,"word":" don't","probability":0.9856073260307312},{"start":110.28,"end":110.48,"word":" push","probability":0.9909963607788086},{"start":110.48,"end":110.96,"word":" me","probability":0.9961814880371094}],"language":"en"},{"start":110.96,"end":113.46,"text":"Don't wanna have to turn a neck up, turn a soupe","words":[{"start":110.96,"end":111.28,"word":" Don't","probability":0.8791087865829468},{"start":111.28,"end":111.48,"word":" wanna","probability":0.8005126714706421},{"start":111.48,"end":111.64,"word":" have","probability":0.9466367363929749},{"start":111.64,"end":111.8,"word":" to","probability":0.9861278533935547},{"start":111.8,"end":112.0,"word":" turn","probability":0.9966975450515747},{"start":112.0,"end":112.16,"word":" a","probability":0.5734033584594727},{"start":112.16,"end":112.28,"word":" neck","probability":0.511055588722229},{"start":112.28,"end":112.44,"word":" up,","probability":0.6793927550315857},{"start":112.68,"end":112.86,"word":" turn","probability":0.1831168532371521},{"start":112.86,"end":113.0,"word":" a","probability":0.6690073609352112},{"start":113.0,"end":113.46,"word":" soupe","probability":0.36313819885253906}],"language":"en"},{"start":113.46,"end":116.72,"text":"Oh, you row, don't she, we're getting besides you, so sorry","words":[{"start":113.46,"end":113.9,"word":" Oh,","probability":0.03470318764448166},{"start":113.92,"end":114.04,"word":" you","probability":0.09764493256807327},{"start":114.04,"end":114.26,"word":" row,","probability":0.22555024921894073},{"start":114.38,"end":114.52,"word":" don't","probability":0.9075242877006531},{"start":114.52,"end":114.68,"word":" she,","probability":0.5581191778182983},{"start":114.92,"end":115.2,"word":" we're","probability":0.9086452722549438},{"start":115.2,"end":115.28,"word":" getting","probability":0.8108048439025879},{"start":115.28,"end":115.54,"word":" besides","probability":0.46687769889831543},{"start":115.54,"end":115.6,"word":" you,","probability":0.6168476939201355},{"start":115.88,"end":116.02,"word":" so","probability":0.7573399543762207},{"start":116.02,"end":116.72,"word":" sorry","probability":0.599987268447876}],"language":"en"},{"start":116.72,"end":117.74,"text":"Take it easy, okay?","words":[{"start":116.72,"end":116.96,"word":" Take","probability":0.36431294679641724},{"start":116.96,"end":117.12,"word":" it","probability":0.9937942028045654},{"start":117.12,"end":117.3,"word":" easy,","probability":0.9976027607917786},{"start":117.44,"end":117.74,"word":" okay?","probability":0.7902085185050964}],"language":"en"},{"start":118.02,"end":120.66,"text":"Oh, I need that, let's do this beauty exercise tomorrow","words":[{"start":118.02,"end":118.12,"word":" Oh,","probability":0.6600059270858765},{"start":118.28,"end":118.34,"word":" I","probability":0.750329852104187},{"start":118.34,"end":118.48,"word":" need","probability":0.9891402721405029},{"start":118.48,"end":118.68,"word":" that,","probability":0.9405444860458374},{"start":118.92,"end":119.26,"word":" let's","probability":0.9698298275470734},{"start":119.26,"end":119.36,"word":" do","probability":0.993755578994751},{"start":119.36,"end":119.54,"word":" this","probability":0.9809880256652832},{"start":119.54,"end":119.76,"word":" beauty","probability":0.0629163458943367},{"start":119.76,"end":120.28,"word":" exercise","probability":0.6868146657943726},{"start":120.28,"end":120.66,"word":" tomorrow","probability":0.4662308394908905}],"language":"en"},{"start":120.9,"end":121.56,"text":"Okay, we got to-","words":[{"start":120.9,"end":121.1,"word":" Okay,","probability":0.2551431655883789},{"start":121.22,"end":121.32,"word":" we","probability":0.6848182082176208},{"start":121.32,"end":121.4,"word":" got","probability":0.5080937147140503},{"start":121.4,"end":121.48,"word":" to","probability":0.1790338158607483},{"start":121.48,"end":121.56,"word":"-","probability":0.30022361874580383}],"language":"en"},{"start":122.78,"end":123.04,"text":"Let's go!","words":[{"start":122.78,"end":122.9,"word":" Let's","probability":0.546098418533802},{"start":122.9,"end":123.04,"word":" go!","probability":0.911562979221344}],"language":"en"},{"start":123.3,"end":125.04,"text":"Ah, ah, ah...","words":[{"start":123.3,"end":123.66,"word":" Ah,","probability":0.018696030601859093},{"start":123.78,"end":124.0,"word":" ah,","probability":0.7194730043411255},{"start":124.16,"end":125.04,"word":" ah...","probability":0.5324816554784775}],"language":"en"}],"language":"en","language_probability":1.0,"video_duration_sec":134.8693125};
+
+    // Default SRT text is extracted from the Whisper Pro JSON "text" field
+    const defaultSrtData = whisperProData.text;
+
+    // Global state
+    let player = null;
+    let subtitles = [];
+    let activeCueIndex = -1;
+    let activeWordIndex = -1;
+    let autoScroll = true;
+    let pollInterval = null;
+    let timeOffset = 0.0;
+    let timingMode = "whisper_pro";
+
+    // Web Audio State for exact local alignment
+    let audioContext = null;
+    let loadedAudioBuffer = null;
+    let localAudioElement = null;
+    let useLocalAudio = false;
+
+    // Chord Progression Definition & Audio Timing Functions
+    // 94 BPM: 1 bar = 2.5532s, 2 bars = 5.1064s
+    const BAR_DURATION = (60 / 94) * 4; // ~2.5532 seconds
+    const TWO_BAR_PERIOD = BAR_DURATION * 2; // ~5.1064 seconds
+
+    const chordsList = [
+      {
+        id: "a13",
+        name: "A13",
+        role: "Tonic Groove",
+        notes: "G4 - C#5 - F#5",
+        bass: "A1",
+        pillId: "pill-a13"
+      },
+      {
+        id: "ab13",
+        name: "A♭13",
+        role: "Chromatic Grace Slide",
+        notes: "Gb4 - C5 - F5",
+        bass: "Ab1",
+        pillId: "pill-ab13"
+      },
+      {
+        id: "a7",
+        name: "A7",
+        role: "Dominant Cadence",
+        notes: "G4 - C#5 - E5",
+        bass: "A1",
+        pillId: "pill-a7"
+      },
+      {
+        id: "turnaround",
+        name: "G13 ➔ F♯13",
+        role: "Chromatic Walkdown",
+        notes: "F4 - B4 - E5 ➔ E4 - A#4 - D#5",
+        bass: "G1 ➔ F#1",
+        pillId: "pill-turnaround"
+      }
+    ];
+
+    // Determine which chord is sounding at a given timestamp
+    function getChordAtTime(seconds) {
+      if (seconds < 3.0) {
+        return chordsList[0]; // A13 intro
+      }
+      // Audio beat starts near 3.2s
+      const relativeTime = (seconds - 3.2) % TWO_BAR_PERIOD;
+      const t = relativeTime < 0 ? relativeTime + TWO_BAR_PERIOD : relativeTime;
+
+      // Measure 1: A13 with a brief Ab13 grace slide
+      if (t < 2.0) {
+        return chordsList[0]; // A13
+      } else if (t < 2.55) {
+        return chordsList[1]; // Ab13 grace
+      } else if (t < 3.8) {
+        return chordsList[2]; // A7 punch
+      } else {
+        return chordsList[3]; // G13 -> F#13 walkdown
+      }
+    }
+
+    // Helper: Parse SRT time string "00:01:23,456" into seconds
+    function parseSrtTimestamp(timeStr) {
+      if (!timeStr) return 0;
+      const [hms, ms] = timeStr.trim().replace('.', ',').split(',');
+      const [h, m, s] = hms.split(':').map(Number);
+      return h * 3600 + m * 60 + s + (Number(ms || 0) / 1000);
+    }
+
+    // Parse full SRT text into structured cue array with word tokens
+    function parseSRT(srtString) {
+      const normalized = srtString.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const blocks = normalized.trim().split(/\n\s*\n/);
+      const parsed = [];
+
+      blocks.forEach((block, idx) => {
+        const lines = block.split('\n');
+        if (lines.length < 2) return;
+
+        let timeLine = lines.find(l => l.includes('-->'));
+        if (!timeLine) return;
+
+        const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
+        const start = parseSrtTimestamp(startStr);
+        const end = parseSrtTimestamp(endStr);
+
+        const timeLineIdx = lines.indexOf(timeLine);
+        const textLines = lines.slice(timeLineIdx + 1).join(' ').trim();
+        if (!textLines) return;
+
+        const cleanText = textLines.replace(/\[\\h__\\h\]/g, '[censored]').trim();
+        const rawWords = cleanText.split(/\s+/).filter(Boolean);
+
+        const duration = Math.max(0.2, end - start);
+        const wordDuration = duration / Math.max(1, rawWords.length);
+
+        const words = rawWords.map((word, wIdx) => {
+          const wStart = start + (wIdx * wordDuration);
+          const wEnd = start + ((wIdx + 1) * wordDuration);
+          return {
+            word: word,
+            startTime: wStart,
+            endTime: wEnd,
+            chord: getChordAtTime(wStart)
+          };
+        });
+
+        parsed.push({
+          id: idx,
+          startTime: start,
+          endTime: end,
+          text: cleanText,
+          words: words
+        });
+      });
+
+      const deduplicated = [];
+      for (let i = 0; i < parsed.length; i++) {
+        if (deduplicated.length > 0) {
+          const last = deduplicated[deduplicated.length - 1];
+          if (last.text === parsed[i].text && Math.abs(last.startTime - parsed[i].startTime) < 0.2) {
+            continue;
+          }
+        }
+        deduplicated.push(parsed[i]);
+      }
+
+      return deduplicated;
+    }
+
+    // Exact Whisper Pro JSON Word-Level Timing Injection
+    function applyWhisperProTimestamps(subtitlesArray, whisperData) {
+      const exactWords = [];
+      if (whisperData.segments) {
+        whisperData.segments.forEach(seg => {
+          if (seg.words && Array.isArray(seg.words)) {
+            seg.words.forEach(w => {
+              if (w.start !== undefined && w.end !== undefined) {
+                exactWords.push({
+                  clean: (w.word || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
+                  raw: (w.word || '').trim(),
+                  start: Number(w.start),
+                  end: Number(w.end),
+                  probability: w.probability !== undefined ? w.probability : (w.score !== undefined ? w.score : 1.0)
+                });
+              }
+            });
+          }
+        });
+      }
+
+      let whisperIdx = 0;
+      subtitlesArray.forEach(cue => {
+        cue.words.forEach(subWord => {
+          const cleanSub = subWord.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          let matched = false;
+          // Lookahead window up to 18 words to account for differing splits or punctuation
+          for (let lookahead = 0; lookahead < 18 && (whisperIdx + lookahead) < exactWords.length; lookahead++) {
+            const candidate = exactWords[whisperIdx + lookahead];
+            const timeDiff = Math.abs(candidate.start - subWord.startTime);
+            const wordsMatch = candidate.clean === cleanSub ||
+                               (cleanSub.length >= 3 && candidate.clean.includes(cleanSub)) ||
+                               (candidate.clean.length >= 3 && cleanSub.includes(candidate.clean));
+
+            if (wordsMatch || (timeDiff < 0.55 && candidate.clean.length > 0)) {
+              subWord.startTime = candidate.start;
+              subWord.endTime = candidate.end;
+              subWord.probability = candidate.probability;
+              subWord.isExact = true;
+              subWord.chord = getChordAtTime(candidate.start);
+              whisperIdx = whisperIdx + lookahead + 1;
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            subWord.chord = getChordAtTime(subWord.startTime);
+          }
+        });
+
+        if (cue.words.length > 0) {
+          const validStarts = cue.words.map(w => w.startTime).filter(t => !isNaN(t));
+          const validEnds = cue.words.map(w => w.endTime).filter(t => !isNaN(t));
+          if (validStarts.length > 0) cue.startTime = Math.min(...validStarts);
+          if (validEnds.length > 0) cue.endTime = Math.max(...validEnds);
+        }
+      });
+    }
+
+    // Render the captions and chords stream into the DOM
+    function renderCaptions() {
+      const container = document.getElementById('captionsContainer');
+      container.innerHTML = '';
+      document.getElementById('cueCount').textContent = subtitles.length;
+
+      subtitles.forEach((cue, cIdx) => {
+        const card = document.createElement('div');
+        card.id = `cue-${cIdx}`;
+        card.className = `cue-card p-3.5 rounded-xl border border-slate-800/80 bg-slate-950/40 transition-all duration-200 cursor-pointer hover:border-slate-700`;
+
+        const header = document.createElement('div');
+        header.className = "flex items-center justify-between text-[11px] mono text-slate-500 mb-2";
+        const min = Math.floor(cue.startTime / 60);
+        const secMs = (cue.startTime % 60).toFixed(2);
+        const chordName = cue.words[0]?.chord?.name || "A13";
+
+        header.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400 font-bold">#${cIdx + 1}</span>
+            <span class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">${String(min).padStart(2, '0')}:${secMs.padStart(5, '0')}</span>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">${chordName}</span>
+        `;
+        card.appendChild(header);
+
+        const wordsWrapper = document.createElement('div');
+        wordsWrapper.className = "flex flex-wrap gap-x-2 gap-y-2 text-sm sm:text-base leading-relaxed";
+
+        cue.words.forEach((w, wIdx) => {
+          const wordContainer = document.createElement('span');
+          wordContainer.id = `word-box-${cIdx}-${wIdx}`;
+          wordContainer.className = "inline-flex flex-col items-center group cursor-pointer transition-transform duration-100 hover:scale-105";
+          const probStr = w.probability !== undefined ? ` | P: ${(w.probability * 100).toFixed(0)}%` : '';
+          wordContainer.title = `Word: "${w.word}" | Starts: ${w.startTime.toFixed(2)}s | Chord: ${w.chord.name}${probStr}`;
+
+          const chordTag = document.createElement('span');
+          chordTag.id = `word-chord-${cIdx}-${wIdx}`;
+          chordTag.textContent = w.chord.name;
+          chordTag.className = "text-[9px] font-mono font-bold text-slate-500 group-hover:text-amber-400 transition-colors -mb-0.5";
+
+          const wordText = document.createElement('span');
+          wordText.id = `word-text-${cIdx}-${wIdx}`;
+          wordText.textContent = w.word;
+          wordText.className = "word-token text-slate-300 font-medium px-1 py-0.5 rounded transition-all";
+
+          wordContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            seekToTime(w.startTime);
+          });
+
+          wordContainer.appendChild(chordTag);
+          wordContainer.appendChild(wordText);
+          wordsWrapper.appendChild(wordContainer);
+        });
+
+        card.appendChild(wordsWrapper);
+
+        card.addEventListener('click', () => {
+          seekToTime(cue.startTime);
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    // Seek helper for either local audio or YouTube player
+    function seekToTime(seconds) {
+      if (useLocalAudio && localAudioElement) {
+        localAudioElement.currentTime = Math.max(0, seconds);
+        if (localAudioElement.paused) localAudioElement.play();
+      } else if (player && typeof player.seekTo === 'function') {
+        player.seekTo(Math.max(0, seconds + timeOffset), true);
+        if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+          player.playVideo();
+        }
+      }
+    }
+
+    // Update chord highlight pills in top banner
+    function updateLiveChordBanner(currentChord) {
+      document.getElementById('liveChordName').textContent = currentChord.name;
+      document.getElementById('liveChordRole').textContent = currentChord.role;
+      document.getElementById('liveChordNotes').textContent = `${currentChord.notes} (Bass: ${currentChord.bass})`;
+
+      chordsList.forEach(c => {
+        const pill = document.getElementById(c.pillId);
+        if (!pill) return;
+        if (c.id === currentChord.id) {
+          pill.className = "px-2 py-1 rounded text-[10px] font-bold border transition duration-150 bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/30 scale-105";
+        } else {
+          pill.className = "px-2 py-1 rounded text-[10px] font-bold border transition duration-150 bg-slate-900 text-slate-400 border-slate-700/60";
+        }
+      });
+    }
+
+    // High frequency synchronization tick (30fps)
+    function onSyncTick() {
+      let rawTime = 0;
+      if (useLocalAudio && localAudioElement) {
+        rawTime = localAudioElement.currentTime;
+      } else if (player && typeof player.getCurrentTime === 'function') {
+        rawTime = player.getCurrentTime();
+      } else {
+        return;
+      }
+
+      const currentTime = rawTime - timeOffset;
+
+      const minutes = Math.floor(rawTime / 60);
+      const seconds = Math.floor(rawTime % 60);
+      const tenths = Math.floor((rawTime % 1) * 10);
+      document.getElementById('timecodeDisplay').textContent = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`;
+
+      const activeChord = getChordAtTime(currentTime);
+      updateLiveChordBanner(activeChord);
+
+      let currentCueIdx = -1;
+      for (let i = 0; i < subtitles.length; i++) {
+        if (currentTime >= subtitles[i].startTime && currentTime <= subtitles[i].endTime) {
+          currentCueIdx = i;
+          break;
+        }
+      }
+
+      if (currentCueIdx === -1) {
+        for (let i = subtitles.length - 1; i >= 0; i--) {
+          if (currentTime >= subtitles[i].endTime && currentTime - subtitles[i].endTime < 1.0) {
+            currentCueIdx = i;
+            break;
+          }
+        }
+      }
+
+      if (currentCueIdx !== activeCueIndex) {
+        if (activeCueIndex !== -1) {
+          const prevCard = document.getElementById(`cue-${activeCueIndex}`);
+          if (prevCard) {
+            prevCard.classList.remove('bg-slate-800/80', 'border-amber-500/50', 'shadow-xl');
+            prevCard.classList.add('bg-slate-950/40', 'border-slate-800/80');
+          }
+        }
+
+        activeCueIndex = currentCueIdx;
+
+        if (activeCueIndex !== -1) {
+          const activeCard = document.getElementById(`cue-${activeCueIndex}`);
+          if (activeCard) {
+            activeCard.classList.add('bg-slate-800/80', 'border-amber-500/50', 'shadow-xl');
+            activeCard.classList.remove('bg-slate-950/40', 'border-slate-800/80');
+
+            if (autoScroll) {
+              activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }
+      }
+
+      if (activeCueIndex !== -1) {
+        const cue = subtitles[activeCueIndex];
+        cue.words.forEach((w, wIdx) => {
+          const wordTextEl = document.getElementById(`word-text-${activeCueIndex}-${wIdx}`);
+          const chordTagEl = document.getElementById(`word-chord-${activeCueIndex}-${wIdx}`);
+          if (!wordTextEl) return;
+
+          if (currentTime >= w.startTime && currentTime <= w.endTime) {
+            wordTextEl.className = "word-token word-active text-amber-300 font-extrabold";
+            if (chordTagEl) {
+              chordTagEl.className = "text-[9px] font-mono font-extrabold text-amber-400 scale-110 transition-transform";
+            }
+          } else if (currentTime > w.endTime) {
+            wordTextEl.className = "word-token word-spoken text-slate-500";
+            if (chordTagEl) {
+              chordTagEl.className = "text-[9px] font-mono font-medium text-slate-600";
+            }
+          } else {
+            wordTextEl.className = "word-token word-upcoming text-slate-300";
+            if (chordTagEl) {
+              chordTagEl.className = "text-[9px] font-mono font-medium text-slate-500";
+            }
+          }
+        });
+      }
+    }
+
+    // YouTube IFrame API Initialization
+    window.onYouTubeIframeAPIReady = function() {
+      player = new YT.Player('player', {
+        videoId: 'GoUcAHBha40',
+        playerVars: {
+          playsinline: 1,
+          modestbranding: 1,
+          rel: 0
+        },
+        events: {
+          onReady: () => {
+            startSyncLoop();
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) {
+              startSyncLoop();
+            } else {
+              stopSyncLoop();
+            }
+          }
+        }
+      });
+    };
+
+    function startSyncLoop() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(onSyncTick, 33);
+    }
+
+    function stopSyncLoop() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    // UI Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      localAudioElement = document.getElementById('localAudioEl');
+
+      // 1. Initialize with Whisper Pro transcript and data
+      document.getElementById('srtTextarea').value = defaultSrtData;
+      subtitles = parseSRT(defaultSrtData);
+
+      // 2. Apply Whisper Pro JSON word-level timings
+      applyWhisperProTimestamps(subtitles, whisperProData);
+      renderCaptions();
+
+      const badge = document.getElementById('timingModeBadge');
+      badge.textContent = "Whisper Pro Word Timings (Active)";
+      badge.className = "ml-2 text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40 font-bold";
+
+      document.getElementById('exactJsonTextarea').value = JSON.stringify(whisperProData, null, 2);
+
+      const srtDrawer = document.getElementById('srtDrawer');
+      const audioDrawer = document.getElementById('audioAlignDrawer');
+
+      document.getElementById('toggleSrtDrawerBtn').addEventListener('click', () => {
+        srtDrawer.classList.toggle('hidden');
+        audioDrawer.classList.add('hidden');
+      });
+
+      document.getElementById('toggleAudioAlignDrawerBtn').addEventListener('click', () => {
+        audioDrawer.classList.toggle('hidden');
+        srtDrawer.classList.add('hidden');
+      });
+
+      document.getElementById('applySrtBtn').addEventListener('click', () => {
+        const newSrt = document.getElementById('srtTextarea').value;
+        subtitles = parseSRT(newSrt);
+        applyWhisperProTimestamps(subtitles, whisperProData);
+        activeCueIndex = -1;
+        renderCaptions();
+        srtDrawer.classList.add('hidden');
+      });
+
+      document.getElementById('loadExactTimestampsBtn').addEventListener('click', () => {
+        const jsonText = document.getElementById('exactJsonTextarea').value.trim();
+        if (!jsonText) return;
+
+        try {
+          const parsedData = JSON.parse(jsonText);
+          applyWhisperProTimestamps(subtitles, parsedData);
+
+          const badgeEl = document.getElementById('timingModeBadge');
+          badgeEl.textContent = "Custom JSON Aligner (Active)";
+          badgeEl.className = "ml-2 text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40 font-bold";
+          renderCaptions();
+          audioDrawer.classList.add('hidden');
+        } catch (err) {
+          const btn = document.getElementById('loadExactTimestampsBtn');
+          const original = btn.textContent;
+          btn.textContent = "Invalid JSON Format";
+          btn.classList.replace('bg-amber-500', 'bg-rose-500');
+          setTimeout(() => {
+            btn.textContent = original;
+            btn.classList.replace('bg-rose-500', 'bg-amber-500');
+          }, 2000);
+        }
+      });
+
+      document.getElementById('loadVideoBtn').addEventListener('click', () => {
+        let inputVal = document.getElementById('youtubeIdInput').value.trim();
+        if (inputVal.includes('v=')) {
+          inputVal = inputVal.split('v=')[1].split('&')[0];
+        } else if (inputVal.includes('youtu.be/')) {
+          inputVal = inputVal.split('youtu.be/')[1].split('?')[0];
+        }
+        if (player && typeof player.loadVideoById === 'function') {
+          useLocalAudio = false;
+          document.getElementById('localAudioContainer').classList.add('hidden');
+          player.loadVideoById(inputVal);
+        }
+      });
+
+      document.getElementById('offsetInput').addEventListener('input', (e) => {
+        timeOffset = parseFloat(e.target.value) || 0.0;
+      });
+
+      document.getElementById('autoScrollToggle').addEventListener('click', () => {
+        autoScroll = !autoScroll;
+        const statusEl = document.getElementById('autoScrollStatus');
+        statusEl.textContent = autoScroll ? 'ON' : 'OFF';
+        statusEl.className = autoScroll ? 'font-bold text-amber-300' : 'font-bold text-slate-500';
+      });
+    });
+  </script>
+</body>
+</html>
